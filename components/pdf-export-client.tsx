@@ -10,7 +10,7 @@ import { Budget } from '@/lib/types';
 import { formatCurrency } from '@/lib/utils';
 
 export default function PdfExportClient() {
-  const { budget, getProjectTotal, getGrandTotal, getProjectHours, getTotalHours, getWeeksFromHours } = useBudget();
+  const { budget, getProjectTotal, getGrandTotal, getProjectHours, getTotalHours } = useBudget();
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const { toPDF, targetRef } = usePDF({
     filename: `presupuesto-${budget.clientName || 'cliente'}.pdf`,
@@ -139,7 +139,6 @@ function PdfContent({
   totalHours, 
   grandTotal, 
   advancePayment,
-  getProjectHours,
   getProjectTotal
 }: PdfContentProps) {
   return (

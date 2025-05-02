@@ -3,9 +3,13 @@ export interface BudgetItem {
   description: string;
   hours: number;
   unitPrice: number;
+  weeks: number;
+  itemTotal: number;
 }
 
 export interface Project {
+  totalHours: number;
+  totalAmount: number;
   id: string;
   name: string;
   items: BudgetItem[];

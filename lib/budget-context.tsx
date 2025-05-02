@@ -70,6 +70,8 @@ export const BudgetProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       id: generateUniqueId(),
       name: 'New Project',
       items: [],
+      totalHours: 0,
+      totalAmount: 0, 
     };
     setBudget(prev => ({
       ...prev,
@@ -98,7 +100,9 @@ export const BudgetProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       id: generateUniqueId(),
       description: '',
       hours: 0,  
-      unitPrice: budget.hourlyRate || 0,  
+      unitPrice: budget.hourlyRate || 0, 
+      weeks: 0, 
+      itemTotal: 0, 
     };
     setBudget(prev => ({
       ...prev,

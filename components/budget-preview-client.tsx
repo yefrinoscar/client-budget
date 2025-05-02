@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useBudget } from '@/lib/budget-context';
 import { formatCurrency } from '@/lib/utils';
+import { BudgetItem, Project } from '@/lib/types';
 
 export default function BudgetPreviewClient() {
   // Estados para todos los valores calculados
@@ -13,7 +14,7 @@ export default function BudgetPreviewClient() {
   const [grandTotal, setGrandTotal] = useState(0);
   const [advancePayment, setAdvancePayment] = useState(0);
   const [referenceNumber, setReferenceNumber] = useState("");
-  const [projectData, setProjectData] = useState<any[]>([]);
+  const [projectData, setProjectData] = useState<Project[]>([]);
   
   // Obtener el contexto del presupuesto
   const { budget, getProjectTotal, getGrandTotal, getProjectHours, getTotalHours, getWeeksFromHours } = useBudget();
@@ -137,7 +138,7 @@ export default function BudgetPreviewClient() {
                 </tr>
               </thead>
               <tbody>
-                {project.items.map((item: any, index: number) => {
+                {project.items.map((item: BudgetItem, index: number) => {
                   // Alternar colores de fondo para filas
                   const bgClass = index % 2 === 0 ? 'bg-white' : 'bg-blue-50/30';
 

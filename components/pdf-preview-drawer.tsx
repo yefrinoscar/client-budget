@@ -7,7 +7,6 @@ import {
   SheetHeader,
   SheetTitle,
   SheetDescription,
-  SheetClose
 } from "@/components/ui/sheet";
 
 interface PdfPreviewDrawerProps {
