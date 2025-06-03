@@ -3,6 +3,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { ClientInfo } from '@/components/client-info';
+import { CompanyInfo } from '@/components/company-info';
 import { Project } from '@/components/project';
 import { Terms } from '@/components/terms';
 import { Summary } from '@/components/summary';
@@ -19,6 +20,7 @@ const BudgetApp: React.FC = () => {
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
+          <CompanyInfo />
           <ClientInfo />
           
           <div className="space-y-4">

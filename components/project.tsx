@@ -93,7 +93,8 @@ export const Project: React.FC<ProjectProps> = ({ projectId }) => {
           <div className="flex flex-wrap items-center gap-3 p-2 border-b mb-2">
             <div className="flex-1 min-w-[200px] font-medium text-sm">Descripción</div>
             <div className="flex items-center gap-3">
-              <div className="w-20 text-right font-medium text-sm">Horas</div>
+              <div className="w-20 text-center font-medium text-sm bg-muted rounded px-1 py-0.5">Modo</div>
+              <div className="w-20 text-right font-medium text-sm">Horas/Precio</div>
               <div className="w-20 text-right font-medium text-sm">Semanas</div>
               <div className="w-28 text-right font-medium text-sm">Total</div>
               <div className="w-8"></div>

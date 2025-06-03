@@ -10,7 +10,9 @@ import { Label } from '@/components/ui/label';
 export const Summary: React.FC = () => {
   const { 
     budget, 
-    getGrandTotal, 
+    getSubtotal,
+    getIGV,
+    getTotalWithIGV,
     getTotalHours, 
     getWeeksFromHours, 
     updateBudget 
@@ -26,7 +28,9 @@ export const Summary: React.FC = () => {
 
   const totalHours = getTotalHours();
   const totalWeeks = getWeeksFromHours(totalHours);
-  const grandTotal = getGrandTotal();
+  const subtotal = getSubtotal();
+  const igv = getIGV();
+  const totalWithIGV = getTotalWithIGV();
   const hourlyRate = typeof budget.hourlyRate === 'number' && !isNaN(budget.hourlyRate) ? budget.hourlyRate : 0;
 
   return (
@@ -56,19 +60,30 @@ export const Summary: React.FC = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
-            <div className="p-4 border rounded-md bg-muted/10">
-              <p className="font-semibold text-sm">Horas Totales</p>
-              <p className="text-2xl font-bold">{isNaN(totalHours) ? 0 : totalHours}</p>
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
             <div className="p-4 border rounded-md bg-muted/10">
               <p className="font-semibold text-sm">Semanas Estimadas</p>
               <p className="text-2xl font-bold">{isNaN(totalWeeks) ? "0.0" : totalWeeks.toFixed(1)}</p>
               <p className="text-xs text-muted-foreground">(40 horas/semana)</p>
             </div>
-            <div className="p-4 border rounded-md bg-primary/10">
-              <p className="font-semibold text-sm">Total del Presupuesto</p>
-              <p className="text-2xl font-bold">{isNaN(grandTotal) ? formatCurrency(0) : formatCurrency(grandTotal)}</p>
+            <div className="p-4 border rounded-md bg-muted/10">
+              <p className="font-semibold text-sm">Horas Totales</p>
+              <p className="text-2xl font-bold">{isNaN(totalHours) ? 0 : totalHours}</p>
+            </div>
+          </div>
+
+          <div className="space-y-3 mt-6">
+            <div className="flex justify-between items-center p-4 border rounded-md bg-muted/10">
+              <span className="font-semibold">Subtotal:</span>
+              <span className="text-lg font-bold">{formatCurrency(subtotal)}</span>
+            </div>
+            <div className="flex justify-between items-center p-4 border rounded-md bg-orange-50">
+              <span className="font-semibold">IGV (18%):</span>
+              <span className="text-lg font-bold text-orange-600">{formatCurrency(igv)}</span>
+            </div>
+            <div className="flex justify-between items-center p-4 border rounded-md bg-primary/10">
+              <span className="font-semibold text-lg">Total:</span>
+              <span className="text-xl font-bold text-primary">{formatCurrency(totalWithIGV)}</span>
             </div>
           </div>
         </CardContent>

@@ -6,4 +6,4 @@ export default function ProjectsPage() {
   return (
     <ProjectsPageClient />
   );
-}
+}1

@@ -12,9 +12,11 @@ export const ClientInfo: React.FC = () => {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     if (name === 'clientName') {
-      updateClientInfo(value, budget.clientEmail);
+      updateClientInfo(value, budget.clientEmail, budget.clientPhone);
     } else if (name === 'clientEmail') {
-      updateClientInfo(budget.clientName, value);
+      updateClientInfo(budget.clientName, value, budget.clientPhone);
+    } else if (name === 'clientPhone') {
+      updateClientInfo(budget.clientName, budget.clientEmail, value);
     }
   };
 
@@ -42,6 +44,17 @@ export const ClientInfo: React.FC = () => {
             type="email"
             placeholder="Ingrese el correo electrónico del cliente"
             value={budget.clientEmail}
+            onChange={handleChange}
+          />
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="clientPhone">Teléfono del Cliente</Label>
+          <Input
+            id="clientPhone"
+            name="clientPhone"
+            type="tel"
+            placeholder="Ingrese el teléfono del cliente (opcional)"
+            value={budget.clientPhone || ''}
             onChange={handleChange}
           />
         </div>

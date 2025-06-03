@@ -1,22 +1,23 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { usePDF } from 'react-to-pdf';
 import { Button } from '@/components/ui/button';
 import { useBudget } from '@/lib/budget-context';
-import { FileDown, Eye } from 'lucide-react';
+import { FileDown, Eye, Download, Upload } from 'lucide-react';
 import { PdfPreviewDrawer } from './pdf-preview-drawer';
 import { Budget } from '@/lib/types';
 import { formatCurrency } from '@/lib/utils';
 
 export default function PdfExportClient() {
-  const { budget, getProjectTotal, getGrandTotal, getProjectHours, getTotalHours } = useBudget();
+  const { budget, updateBudget } = useBudget();
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const { toPDF, targetRef } = usePDF({
     filename: `presupuesto-${budget.clientName || 'cliente'}.pdf`,
     page: { margin: 10 } // Márgenes más pequeños
   });
   const [isCapturing, setIsCapturing] = useState(false); // State to control temporary render
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [currentDate, setCurrentDate] = useState(""); // Initialize state
 
@@ -31,9 +32,13 @@ export default function PdfExportClient() {
   }, []); // Empty dependency array ensures this runs only once on mount
 
   // Cálculos para el tiempo estimado y forma de pago
+  const { getProjectTotal, getSubtotal, getIGV, getTotalWithIGV, getProjectHours, getTotalHours, getWeeksFromHours } = useBudget();
   const totalHours = getTotalHours();
-  const grandTotal = getGrandTotal();
-  const advancePayment = grandTotal * 0.2; // 20% de adelanto
+  const totalWeeks = getWeeksFromHours(totalHours);
+  const subtotal = getSubtotal();
+  const igv = getIGV();
+  const totalWithIGV = getTotalWithIGV();
+  const advancePayment = totalWithIGV * 0.2; // 20% de adelanto
 
   // Use useEffect to trigger PDF generation after isCapturing state updates and component re-renders
   useEffect(() => {
@@ -53,6 +58,80 @@ export default function PdfExportClient() {
     setIsCapturing(true); // Start the capture process
   };
 
+  // JSON Export functionality
+  const handleExportJSON = () => {
+    try {
+      const dataToExport = {
+        ...budget,
+        exportDate: new Date().toISOString(),
+        version: "1.0"
+      };
+      
+      const jsonString = JSON.stringify(dataToExport, null, 2);
+      const blob = new Blob([jsonString], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `cotizacion-${budget.clientName || 'sin-nombre'}-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error exporting JSON:', error);
+      alert('Error al exportar el archivo JSON. Por favor, inténtalo de nuevo.');
+    }
+  };
+
+  // JSON Import functionality
+  const handleImportJSON = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const jsonContent = e.target?.result as string;
+        const importedData = JSON.parse(jsonContent);
+        
+        // Validate the imported data structure
+        if (!importedData || typeof importedData !== 'object') {
+          throw new Error('Formato de archivo inválido');
+        }
+
+        // Basic validation of required fields
+        const requiredFields = ['clientName', 'clientEmail', 'projects', 'terms', 'hourlyRate'];
+        const hasRequiredFields = requiredFields.every(field => 
+          importedData.hasOwnProperty(field)
+        );
+
+        if (!hasRequiredFields) {
+          throw new Error('El archivo no contiene todos los campos requeridos');
+        }
+
+        // Clean up the data (remove export metadata)
+        const { exportDate, version, ...cleanData } = importedData;
+        
+        // Update the budget with imported data
+        updateBudget(cleanData);
+        
+        alert('Cotización importada exitosamente!');
+      } catch (error) {
+        console.error('Error importing JSON:', error);
+        alert('Error al importar el archivo. Por favor, verifica que sea un archivo JSON válido de una cotización.');
+      }
+    };
+
+    reader.readAsText(file);
+    // Reset the input value so the same file can be selected again
+    event.target.value = '';
+  };
+
   return (
     <div>
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
@@ -70,7 +149,32 @@ export default function PdfExportClient() {
         >
           <FileDown className="h-4 w-4 mr-2" /> Exportar PDF
         </Button>
+        <Button 
+          onClick={handleExportJSON}
+          className="cursor-pointer"
+          variant="outline"
+          style={{ borderColor: '#10b981', color: '#10b981' }}
+        >
+          <Download className="h-4 w-4 mr-2" /> Exportar JSON
+        </Button>
+        <Button 
+          onClick={handleImportJSON}
+          className="cursor-pointer"
+          variant="outline"
+          style={{ borderColor: '#f59e0b', color: '#f59e0b' }}
+        >
+          <Upload className="h-4 w-4 mr-2" /> Importar JSON
+        </Button>
       </div>
+
+      {/* Hidden file input for JSON import */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".json"
+        onChange={handleFileChange}
+        style={{ display: 'none' }}
+      />
       
       {/* Temporarily render content in a hidden div JUST for PDF capture */}
       {isCapturing && (
@@ -92,8 +196,10 @@ export default function PdfExportClient() {
           <PdfContent
             budget={budget}
             currentDate={currentDate}
-            totalHours={totalHours}
-            grandTotal={grandTotal}
+            totalWeeks={totalWeeks}
+            subtotal={subtotal}
+            igv={igv}
+            totalWithIGV={totalWithIGV}
             advancePayment={advancePayment}
             getProjectHours={getProjectHours}
             getProjectTotal={getProjectTotal}
@@ -110,8 +216,10 @@ export default function PdfExportClient() {
           <PdfContent 
             budget={budget}
             currentDate={currentDate}
-            totalHours={totalHours}
-            grandTotal={grandTotal}
+            totalWeeks={totalWeeks}
+            subtotal={subtotal}
+            igv={igv}
+            totalWithIGV={totalWithIGV}
             advancePayment={advancePayment}
             getProjectHours={getProjectHours}
             getProjectTotal={getProjectTotal}
@@ -126,8 +234,10 @@ export default function PdfExportClient() {
 interface PdfContentProps {
   budget: Budget;
   currentDate: string;
-  totalHours: number;
-  grandTotal: number;
+  totalWeeks: number;
+  subtotal: number;
+  igv: number;
+  totalWithIGV: number;
   advancePayment: number;
   getProjectHours: (projectId: string) => number;
   getProjectTotal: (projectId: string) => number;
@@ -136,31 +246,93 @@ interface PdfContentProps {
 function PdfContent({ 
   budget, 
   currentDate, 
-  totalHours, 
-  grandTotal, 
+  totalWeeks,
+  subtotal,
+  igv,
+  totalWithIGV,
   advancePayment,
   getProjectTotal
 }: PdfContentProps) {
+  const companyInfo = budget.companyInfo;
+  
   return (
     <>
+      {/* Company Header */}
+      {companyInfo && companyInfo.name && companyInfo.name.trim() !== '' && (
+        <div className="mb-6 pb-4" style={{ borderBottom: '2px solid #3b82f6', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-4">
+              <div className="flex-shrink-0">
+                <img 
+                  src="/underla logo.svg" 
+                  alt={`${companyInfo.name} Logo`}
+                  style={{ height: '48px', width: '48px', objectFit: 'contain', borderRadius: '4px' }}
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none';
+                  }}
+                />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold mb-1" style={{ color: '#1e3a8a' }}>{companyInfo.name}</h1>
+                {companyInfo.taxId && companyInfo.taxId.trim() !== '' && (
+                  <p style={{ fontSize: '12px', color: '#2563eb', fontWeight: '500' }}>RUC: {companyInfo.taxId}</p>
+                )}
+              </div>
+            </div>
+            
+            <div style={{ textAlign: 'right', fontSize: '11px', color: '#6b7280' }}>
+              {companyInfo.address && companyInfo.address.trim() !== '' && (
+                <p style={{ maxWidth: '200px', marginBottom: '4px' }}>{companyInfo.address}</p>
+              )}
+              {companyInfo.phone && companyInfo.phone.trim() !== '' && (
+                <p style={{ marginBottom: '2px' }}>Tel: {companyInfo.phone}</p>
+              )}
+              {companyInfo.email && companyInfo.email.trim() !== '' && (
+                <p style={{ marginBottom: '2px' }}>Email: {companyInfo.email}</p>
+              )}
+              {companyInfo.website && companyInfo.website.trim() !== '' && (
+                <p>Web: {companyInfo.website}</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Encabezado */}
       <div className="mb-6 border-b pb-4" style={{ borderColor: '#4D2DDA', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
-        <h1 className="text-3xl font-bold mb-2" style={{ color: '#4D2DDA' }}>Cotizacion de Yachting</h1>
+        <h1 className="text-3xl font-bold mb-2" style={{ color: '#4D2DDA' }}>Cotización</h1>
         <p style={{ color: '#64748b' }}>Fecha: {currentDate || 'Calculando...'}</p>
       </div>
       
       {/* Información del Cliente */}
       <div className="mb-6 p-4 rounded-lg" style={{ backgroundColor: '#f8fafc', border: '1px solid #E2E8F0', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
         <h2 className="text-xl font-semibold mb-4" style={{ color: '#1e293b' }}>Información del Cliente</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <p style={{ color: '#64748b' }}>Nombre:</p>
-            <p className="font-medium">{budget.clientName || 'No especificado'}</p>
-          </div>
-          <div>
-            <p style={{ color: '#64748b' }}>Correo:</p>
-            <p className="font-medium">{budget.clientEmail || 'No especificado'}</p>
-          </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {budget.clientName && budget.clientName.trim() !== '' && (
+            <div>
+              <p style={{ color: '#64748b' }}>Nombre:</p>
+              <p className="font-medium">{budget.clientName}</p>
+            </div>
+          )}
+          {budget.clientEmail && budget.clientEmail.trim() !== '' && (
+            <div>
+              <p style={{ color: '#64748b' }}>Correo:</p>
+              <p className="font-medium">{budget.clientEmail}</p>
+            </div>
+          )}
+          {budget.clientPhone && budget.clientPhone.trim() !== '' && (
+            <div>
+              <p style={{ color: '#64748b' }}>Teléfono:</p>
+              <p className="font-medium">{budget.clientPhone}</p>
+            </div>
+          )}
+          {(!budget.clientName || budget.clientName.trim() === '') && 
+           (!budget.clientEmail || budget.clientEmail.trim() === '') && 
+           (!budget.clientPhone || budget.clientPhone.trim() === '') && (
+            <div style={{ color: '#6b7280', fontStyle: 'italic' }}>
+              No se ha especificado información del cliente
+            </div>
+          )}
         </div>
       </div>
       
@@ -182,96 +354,124 @@ function PdfContent({
           <table className="w-full mb-4" style={{ borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ backgroundColor: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
-                <th className="text-left py-3 px-4" style={{ width: '70%' }}>Descripción</th>
-                <th className="text-right py-3 px-4" style={{ width: '30%' }}>Total</th>
+                <th className="text-left py-3 px-4" style={{ width: '50%' }}>Descripción</th>
+                <th className="text-center py-3 px-4" style={{ width: '10%' }}>Cant.</th>
+                <th className="text-right py-3 px-4" style={{ width: '20%' }}>Precio Unitario</th>
+                <th className="text-right py-3 px-4" style={{ width: '20%' }}>Subtotal</th>
               </tr>
             </thead>
             <tbody>
               {project.items.map(item => {
                 // Asegurar valores válidos
                 const hours = typeof item.hours === 'number' && !isNaN(item.hours) ? item.hours : 0;
+                const fixedPrice = typeof item.fixedPrice === 'number' && !isNaN(item.fixedPrice) ? item.fixedPrice : 0;
                 const hourlyRate = typeof budget.hourlyRate === 'number' && !isNaN(budget.hourlyRate) ? budget.hourlyRate : 0;
-                const itemTotal = hours * hourlyRate;
+                const pricingMode = item.pricingMode || 'hourly';
+                const itemTotal = pricingMode === 'fixed' ? fixedPrice : (hours * hourlyRate);
+                const quantity = 1; // Default quantity
                 
                 return (
                   <tr key={item.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                    <td className="py-3 px-4">{item.description || 'Sin descripción'}</td>
-                    <td className="text-right py-3 px-4">{isNaN(itemTotal) ? formatCurrency(0) : formatCurrency(itemTotal)}</td>
+                    <td className="py-3 px-4">
+                      <div>
+                        <p style={{ fontWeight: '500', marginBottom: '2px' }}>{item.description || 'Sin descripción'}</p>
+                        {pricingMode === 'hourly' && hours > 0 && (
+                          <p style={{ fontSize: '11px', color: '#6b7280', margin: '0' }}>
+                            {hours} {hours === 1 ? 'hora' : 'horas'} × {formatCurrency(hourlyRate)}/hora
+                          </p>
+                        )}
+                      </div>
+                    </td>
+                    <td className="text-center py-3 px-4" style={{ fontWeight: '500' }}>
+                      {quantity}
+                    </td>
+                    <td className="text-right py-3 px-4" style={{ fontWeight: '500' }}>
+                      {formatCurrency(itemTotal)}
+                    </td>
+                    <td className="text-right py-3 px-4" style={{ fontWeight: '600', color: '#1e40af' }}>
+                      {formatCurrency(itemTotal * quantity)}
+                    </td>
                   </tr>
                 );
               })}
             </tbody>
             <tfoot>
-              <tr style={{ backgroundColor: '#f8fafc' }}>
-                <td className="text-right font-semibold py-3 px-4">Total del Proyecto:</td>
-                <td className="text-right font-semibold py-3 px-4">{formatCurrency(getProjectTotal(project.id))}</td>
+              <tr style={{ backgroundColor: '#1e40af', color: 'white' }}>
+                <td colSpan={3} className="text-right font-semibold py-3 px-4">Total del Proyecto:</td>
+                <td className="text-right font-bold py-3 px-4" style={{ fontSize: '16px' }}>{formatCurrency(getProjectTotal(project.id))}</td>
               </tr>
             </tfoot>
           </table>
         </div>
       ))}
       
-      {/* Resumen */}
+      {/* Desglose de Costos */}
       <div className="mb-6" style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
-        <h2 className="text-xl font-semibold mb-4" style={{ color: '#1e293b' }}>Resumen</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="p-4 border rounded-md" style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0' }}>
-            <p className="font-semibold" style={{ color: '#334155' }}>Horas Totales:</p>
-            <p className="text-lg">{isNaN(totalHours) ? 0 : totalHours}</p>
-          </div>
-          <div className="p-4 border rounded-md" style={{ backgroundColor: '#eff6ff', border: '1px solid #e2e8f0' }}>
-            <p className="font-semibold" style={{ color: '#334155' }}>Total del Presupuesto:</p>
-            <p className="text-2xl font-bold" style={{ color: '#4D2DDA' }}>{isNaN(grandTotal) ? formatCurrency(0) : formatCurrency(grandTotal)}</p>
+        <h2 className="text-xl font-semibold mb-4" style={{ color: '#1e293b' }}>Desglose de Costos</h2>
+        <div className="p-4 border rounded-md" style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0' }}>
+          <div className="space-y-3">
+            <div className="flex justify-between py-2" style={{ borderBottom: '1px solid #e2e8f0' }}>
+              <span className="font-semibold">Subtotal:</span>
+              <span className="font-bold">{formatCurrency(subtotal)}</span>
+            </div>
+            <div className="flex justify-between py-2" style={{ borderBottom: '1px solid #e2e8f0' }}>
+              <span className="font-semibold" style={{ color: '#ea580c' }}>IGV (18%):</span>
+              <span className="font-bold" style={{ color: '#ea580c' }}>{formatCurrency(igv)}</span>
+            </div>
+            <div className="flex justify-between py-3" style={{ backgroundColor: '#eff6ff', padding: '12px', borderRadius: '6px' }}>
+              <span className="font-bold text-lg" style={{ color: '#1e40af' }}>Total:</span>
+              <span className="font-bold text-xl" style={{ color: '#1e40af' }}>{formatCurrency(totalWithIGV)}</span>
+            </div>
           </div>
         </div>
       </div>
-
-      <div className="mb-6 p-4 rounded-md border text-sm" style={{ background: '#fffbe6', borderColor: '#ffe58f', color: '#ad6800' }}>
-        <strong>Nota:</strong> Cualquier desarrollo previo debe tener un prototipo de diseño aprobado, el cual está incluido en este presupuesto.
-      </div>
       
-      {/* Tiempo Estimado */}
-      <div className="mb-6 p-4 border rounded-md" style={{ backgroundColor: '#f8fafc' }}>
-        <h2 className="text-xl font-semibold mb-3" style={{ color: '#1e293b' }}>Tiempo Estimado</h2>
-        <p>
-          El tiempo estimado para completar este proyecto es de <strong>{isNaN(totalHours) ? 0 : totalHours} horas</strong> de trabajo. 
-          El proyecto estara finalizado en aproximadamente <strong>3 meses </strong> 
-          (considerando una semana laboral de 40 horas).
-        </p>
-      </div>
+      {/* Tiempo Estimado - Solo mostrar si no está vacío */}
+      {budget.timeEstimate && budget.timeEstimate.trim() !== '' && (
+        <div className="mb-6 p-4 border rounded-md" style={{ backgroundColor: '#f8fafc' }}>
+          <h2 className="text-xl font-semibold mb-3" style={{ color: '#1e293b' }}>Tiempo Estimado</h2>
+          <div className="whitespace-pre-line">
+            {budget.timeEstimate.replace('[SEMANAS]', isNaN(totalWeeks) ? "0.0" : totalWeeks.toFixed(1))}
+          </div>
+        </div>
+      )}
       
-      {/* Forma de Pago */}
-      <div className="mb-6 p-4 border rounded-md" style={{ backgroundColor: '#f8fafc' }}>
-        <h2 className="text-xl font-semibold mb-3" style={{ color: '#1e293b' }}>Forma de Pago</h2>
-        <p className="mb-2">
-          <strong>Pago inicial (20%):</strong> {isNaN(advancePayment) ? formatCurrency(0) : formatCurrency(advancePayment)}
-        </p>
-        <p className="mb-2">
-          El resto del pago se distribuirá por etapas según el avance del proyecto.
-        </p>
-        <p>
-          Cada etapa completada requerirá la aprobación del cliente antes de proceder con el siguiente pago.
-        </p>
-      </div>
+      {/* Nota del Proyecto - Solo mostrar si no está vacío */}
+      {budget.projectNote && budget.projectNote.trim() !== '' && (
+        <div className="mb-6 p-4 border rounded-md" style={{ backgroundColor: '#fffbe6', borderColor: '#ffe58f' }}>
+          <h2 className="text-xl font-semibold mb-3" style={{ color: '#ad6800' }}>Notas Importantes</h2>
+          <div className="whitespace-pre-line" style={{ color: '#ad6800', fontWeight: '500' }}>
+            {budget.projectNote}
+          </div>
+        </div>
+      )}
       
-      {/* Soporte Post-Proyecto */}
-      <div className="mb-6 p-4 border rounded-md" style={{ backgroundColor: '#f8fafc' }}>
-        <h2 className="text-xl font-semibold mb-3" style={{ color: '#1e293b' }}>Soporte Post-Proyecto</h2>
-        <p className="mb-2">
-          Se incluye <strong>1 mes de soporte gratuito</strong> después de la entrega final del proyecto para resolver cualquier incidencia.
-        </p>
-        <p>
-          Después del período de soporte gratuito, cualquier mantenimiento o modificación adicional será cotizado por separado.
-        </p>
-      </div>
+      {/* Forma de Pago - Solo mostrar si no está vacío */}
+      {budget.paymentTerms && budget.paymentTerms.trim() !== '' && (
+        <div className="mb-6 p-4 border rounded-md" style={{ backgroundColor: '#f8fafc' }}>
+          <h2 className="text-xl font-semibold mb-3" style={{ color: '#1e293b' }}>Forma de Pago</h2>
+          <p className="mb-2">
+            <strong>Pago inicial (20%):</strong> {isNaN(advancePayment) ? formatCurrency(0) : formatCurrency(advancePayment)}
+          </p>
+          <div className="whitespace-pre-line">{budget.paymentTerms}</div>
+        </div>
+      )}
       
-      {/* Términos y Condiciones */}
-      <div className="mb-6 p-4 border rounded-md" style={{ backgroundColor: '#f8fafc' }}>
-        <h2 className="text-xl font-semibold mb-3" style={{ color: '#1e293b' }}>Términos y Condiciones</h2>
-        <div className="whitespace-pre-line">{budget.terms}</div>
-      </div>
+      {/* Soporte Post-Proyecto - Solo mostrar si no está vacío */}
+      {budget.supportTerms && budget.supportTerms.trim() !== '' && (
+        <div className="mb-6 p-4 border rounded-md" style={{ backgroundColor: '#f8fafc' }}>
+          <h2 className="text-xl font-semibold mb-3" style={{ color: '#1e293b' }}>Soporte Post-Proyecto</h2>
+          <div className="whitespace-pre-line">{budget.supportTerms}</div>
+        </div>
+      )}
       
-   
+      {/* Términos y Condiciones - Solo mostrar si no está vacío */}
+      {budget.terms && budget.terms.trim() !== '' && (
+        <div className="mb-6 p-4 border rounded-md" style={{ backgroundColor: '#f8fafc' }}>
+          <h2 className="text-xl font-semibold mb-3" style={{ color: '#1e293b' }}>Términos y Condiciones</h2>
+          <div className="whitespace-pre-line">{budget.terms}</div>
+        </div>
+      )}
     </>
   );
-}
+} 

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Budget, Project, BudgetItem, DEFAULT_TERMS } from './types';
+import { Budget, Project, BudgetItem, DEFAULT_TERMS, CompanyInfo, DEFAULT_COMPANY_INFO, DEFAULT_PAYMENT_TERMS, DEFAULT_SUPPORT_TERMS, DEFAULT_TIME_ESTIMATE, DEFAULT_PROJECT_NOTE } from './types';
 import { generateUniqueId } from './utils';
 
 interface BudgetContextType {
@@ -12,11 +12,19 @@ interface BudgetContextType {
   addBudgetItem: (projectId: string) => void;
   updateBudgetItem: (projectId: string, itemId: string, item: Partial<BudgetItem>) => void;
   removeBudgetItem: (projectId: string, itemId: string) => void;
-  updateClientInfo: (name: string, email: string) => void;
+  updateClientInfo: (name: string, email: string, phone?: string) => void;
+  updateCompanyInfo: (companyInfo: Partial<CompanyInfo>) => void;
   updateTerms: (terms: string) => void;
+  updatePaymentTerms: (paymentTerms: string) => void;
+  updateSupportTerms: (supportTerms: string) => void;
+  updateTimeEstimate: (timeEstimate: string) => void;
+  updateProjectNote: (projectNote: string) => void;
   updateHourlyRate: (rate: number) => void;
   getProjectTotal: (projectId: string) => number;
   getGrandTotal: () => number;
+  getSubtotal: () => number;
+  getIGV: () => number;
+  getTotalWithIGV: () => number;
   getProjectHours: (projectId: string) => number;
   getTotalHours: () => number;
   getWeeksFromHours: (hours: number) => number;
@@ -26,10 +34,16 @@ interface BudgetContextType {
 const defaultBudget: Budget = {
   clientName: '',
   clientEmail: '',
+  clientPhone: '',
   date: '', // FIXED: Always deterministic for SSR/CSR
   projects: [],
   terms: DEFAULT_TERMS,
+  paymentTerms: DEFAULT_PAYMENT_TERMS,
+  supportTerms: DEFAULT_SUPPORT_TERMS,
+  timeEstimate: DEFAULT_TIME_ESTIMATE,
+  projectNote: DEFAULT_PROJECT_NOTE,
   hourlyRate: 15,
+  companyInfo: DEFAULT_COMPANY_INFO,
 };
 
 const BudgetContext = createContext<BudgetContextType | undefined>(undefined);
@@ -102,7 +116,9 @@ export const BudgetProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       hours: 0,  
       unitPrice: budget.hourlyRate || 0, 
       weeks: 0, 
-      itemTotal: 0, 
+      itemTotal: 0,
+      pricingMode: 'hourly', // Default to hourly pricing
+      fixedPrice: 0,
     };
     setBudget(prev => ({
       ...prev,
@@ -141,11 +157,23 @@ export const BudgetProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }));
   };
 
-  const updateClientInfo = (clientName: string, clientEmail: string) => {
+  const updateClientInfo = (clientName: string, clientEmail: string, clientPhone?: string) => {
     setBudget(prev => ({
       ...prev,
       clientName,
       clientEmail,
+      clientPhone: clientPhone || '',
+    }));
+  };
+
+  const updateCompanyInfo = (companyInfo: Partial<CompanyInfo>) => {
+    setBudget(prev => ({
+      ...prev,
+      companyInfo: {
+        ...DEFAULT_COMPANY_INFO,
+        ...prev.companyInfo,
+        ...companyInfo
+      }
     }));
   };
 
@@ -153,6 +181,34 @@ export const BudgetProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setBudget(prev => ({
       ...prev,
       terms,
+    }));
+  };
+
+  const updatePaymentTerms = (paymentTerms: string) => {
+    setBudget(prev => ({
+      ...prev,
+      paymentTerms,
+    }));
+  };
+
+  const updateSupportTerms = (supportTerms: string) => {
+    setBudget(prev => ({
+      ...prev,
+      supportTerms,
+    }));
+  };
+
+  const updateTimeEstimate = (timeEstimate: string) => {
+    setBudget(prev => ({
+      ...prev,
+      timeEstimate,
+    }));
+  };
+
+  const updateProjectNote = (projectNote: string) => {
+    setBudget(prev => ({
+      ...prev,
+      projectNote,
     }));
   };
 
@@ -192,8 +248,14 @@ export const BudgetProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const hourlyRate = typeof budget.hourlyRate === 'number' && !isNaN(budget.hourlyRate) ? budget.hourlyRate : 0;
     
     return project.items.reduce((total, item) => {
-      const hours = typeof item.hours === 'number' && !isNaN(item.hours) ? item.hours : 0;
-      return total + (hours * hourlyRate);
+      // Use fixed price if pricing mode is 'fixed', otherwise calculate by hours
+      if (item.pricingMode === 'fixed') {
+        const fixedPrice = typeof item.fixedPrice === 'number' && !isNaN(item.fixedPrice) ? item.fixedPrice : 0;
+        return total + fixedPrice;
+      } else {
+        const hours = typeof item.hours === 'number' && !isNaN(item.hours) ? item.hours : 0;
+        return total + (hours * hourlyRate);
+      }
     }, 0);
   };
 
@@ -201,6 +263,20 @@ export const BudgetProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return budget.projects.reduce((total, project) => {
       return total + getProjectTotal(project.id);
     }, 0);
+  };
+
+  const getSubtotal = (): number => {
+    return budget.projects.reduce((total, project) => {
+      return total + getProjectTotal(project.id);
+    }, 0);
+  };
+
+  const getIGV = (): number => {
+    return getSubtotal() * 0.18;
+  };
+
+  const getTotalWithIGV = (): number => {
+    return getSubtotal() + getIGV();
   };
 
   const updateBudget = (updates: Partial<Budget>) => {
@@ -220,10 +296,18 @@ export const BudgetProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       updateBudgetItem,
       removeBudgetItem,
       updateClientInfo,
+      updateCompanyInfo,
       updateTerms,
+      updatePaymentTerms,
+      updateSupportTerms,
+      updateTimeEstimate,
+      updateProjectNote,
       updateHourlyRate,
       getProjectTotal,
       getGrandTotal,
+      getSubtotal,
+      getIGV,
+      getTotalWithIGV,
       getProjectHours,
       getTotalHours,
       getWeeksFromHours,
