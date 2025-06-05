@@ -127,7 +127,6 @@ export default function PdfExportClient() {
         }
 
         // Clean up the data (remove export metadata)
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { exportDate: _exportDate, version: _version, exportInfo: _exportInfo, ...cleanData } = importedData;
         
         // Update the budget with imported data
