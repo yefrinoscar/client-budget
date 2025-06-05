@@ -8,6 +8,7 @@ import { Project } from '@/components/project';
 import { Terms } from '@/components/terms';
 import { Summary } from '@/components/summary';
 import { PdfExport } from '@/components/pdf-export';
+import { PreTableMessage } from '@/components/pre-table-message';
 import { useBudget } from '@/lib/budget-context';
 import { Plus } from 'lucide-react';
 
@@ -36,6 +37,7 @@ const BudgetApp: React.FC = () => {
             </Button>
           </div>
           
+          <PreTableMessage />
           <Terms />
         </div>
         

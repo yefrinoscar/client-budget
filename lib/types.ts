@@ -42,6 +42,8 @@ export interface Budget {
   timeEstimate?: string; // New field for editable time estimate
   projectNote?: string; // New field for editable project note
   companyInfo?: CompanyInfo;
+  preTableMessage?: string; // Rich text message before the price table
+  igvEnabled?: boolean; // Controls whether IGV (18% tax) is applied
 }
 
 export const DEFAULT_TERMS = `- Tiempo estimado de desarrollo: 6 a 8 semanas

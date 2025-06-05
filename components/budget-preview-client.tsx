@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useBudget } from '@/lib/budget-context';
 import { formatCurrency } from '@/lib/utils';
-import { BudgetItem, Project } from '@/lib/types';
+import { Project } from '@/lib/types';
 import { Textarea } from '@/components/ui/textarea';
 import { Edit3, Save, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -272,6 +272,20 @@ export default function BudgetPreviewClient() {
         </div>
       </div>
 
+      {/* Pre-table Message */}
+      {budget.preTableMessage && budget.preTableMessage.trim() !== '' && (
+        <div className="mb-10 p-6 bg-gray-50 border border-gray-200 rounded-xl">
+          <div className="flex items-center mb-4">
+            <div className="w-1 h-6 bg-gray-600 rounded-full mr-3"></div>
+            <h2 className="text-2xl font-bold text-gray-800">Información Importante</h2>
+          </div>
+          <div 
+            className="rich-text-content prose prose-gray max-w-none text-gray-700" 
+            dangerouslySetInnerHTML={{ __html: budget.preTableMessage }}
+          />
+        </div>
+      )}
+
       {/* Proyectos */}
       {projectData.map(project => (
         <div key={project.id} className="mb-10">
@@ -291,10 +305,11 @@ export default function BudgetPreviewClient() {
                 </tr>
               </thead>
               <tbody>
-                {project.items.map((item: any, index: number) => {
+                {project.items.map((item, index: number) => {
                   // Alternar colores de fondo para filas
                   const bgClass = index % 2 === 0 ? 'bg-white' : 'bg-blue-50/30';
                   const hourlyRate = typeof budget.hourlyRate === 'number' && !isNaN(budget.hourlyRate) ? budget.hourlyRate : 0;
+                  const quantity = 1; // Default quantity
 
                   return (
                     <tr key={item.id} className={`${bgClass} hover:bg-blue-50 transition-colors duration-150`}>
@@ -310,14 +325,14 @@ export default function BudgetPreviewClient() {
                       </td>
                       <td className="text-center py-4 px-6 border-t border-blue-100">
                         <span className="inline-flex items-center justify-center w-8 h-8 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
-                          {item.quantity}
+                          {quantity}
                         </span>
                       </td>
                       <td className="text-right py-4 px-6 border-t border-blue-100 font-medium">
                         {formatCurrency(item.itemTotal)}
                       </td>
                       <td className="text-right py-4 px-6 border-t border-blue-100 font-semibold text-blue-900">
-                        {formatCurrency(item.itemTotal * item.quantity)}
+                        {formatCurrency(item.itemTotal * quantity)}
                       </td>
                     </tr>
                   );
@@ -380,10 +395,12 @@ export default function BudgetPreviewClient() {
               <span className="font-semibold text-lg">Subtotal:</span>
               <span className="text-lg font-bold">{formatCurrency(subtotal)}</span>
             </div>
-            <div className="flex justify-between items-center py-3 border-b border-blue-100">
-              <span className="font-semibold text-lg text-orange-600">IGV (18%):</span>
-              <span className="text-lg font-bold text-orange-600">{formatCurrency(igv)}</span>
-            </div>
+            {(budget.igvEnabled ?? true) && (
+              <div className="flex justify-between items-center py-3 border-b border-blue-100">
+                <span className="font-semibold text-lg text-orange-600">IGV (18%):</span>
+                <span className="text-lg font-bold text-orange-600">{formatCurrency(igv)}</span>
+              </div>
+            )}
             <div className="flex justify-between items-center py-4 bg-blue-50 px-4 rounded-lg">
               <span className="font-bold text-xl text-blue-800">Total:</span>
               <span className="text-2xl font-bold text-blue-800">{formatCurrency(totalWithIGV)}</span>

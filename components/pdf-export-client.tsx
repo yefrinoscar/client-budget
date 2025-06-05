@@ -61,10 +61,18 @@ export default function PdfExportClient() {
   // JSON Export functionality
   const handleExportJSON = () => {
     try {
+      // Create comprehensive export data including all rich text content
       const dataToExport = {
         ...budget,
         exportDate: new Date().toISOString(),
-        version: "1.0"
+        version: "1.0",
+        exportInfo: {
+          appName: "Budget App",
+          richTextIncluded: !!budget.preTableMessage,
+          igvEnabled: budget.igvEnabled ?? true,
+          totalProjects: budget.projects.length,
+          totalItems: budget.projects.reduce((total, project) => total + project.items.length, 0)
+        }
       };
       
       const jsonString = JSON.stringify(dataToExport, null, 2);
@@ -78,6 +86,10 @@ export default function PdfExportClient() {
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
+      
+      // Show success message with details
+      const richTextStatus = budget.preTableMessage ? 'incluido' : 'no incluido';
+      alert(`✅ Cotización exportada exitosamente!\n\n📄 Contenido exportado:\n• ${budget.projects.length} proyecto(s)\n• Texto enriquecido: ${richTextStatus}\n• IGV: ${budget.igvEnabled ? 'habilitado' : 'deshabilitado'}\n• Información de empresa: ${budget.companyInfo?.name ? 'incluida' : 'no incluida'}`);
     } catch (error) {
       console.error('Error exporting JSON:', error);
       alert('Error al exportar el archivo JSON. Por favor, inténtalo de nuevo.');
@@ -115,12 +127,16 @@ export default function PdfExportClient() {
         }
 
         // Clean up the data (remove export metadata)
-        const { exportDate, version, ...cleanData } = importedData;
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { exportDate: _exportDate, version: _version, exportInfo: _exportInfo, ...cleanData } = importedData;
         
         // Update the budget with imported data
         updateBudget(cleanData);
         
-        alert('Cotización importada exitosamente!');
+        // Show success message with import details
+        const richTextStatus = cleanData.preTableMessage ? 'incluido' : 'no incluido';
+        const projectCount = cleanData.projects?.length || 0;
+        alert(`✅ Cotización importada exitosamente!\n\n📄 Contenido importado:\n• ${projectCount} proyecto(s)\n• Texto enriquecido: ${richTextStatus}\n• IGV: ${cleanData.igvEnabled ? 'habilitado' : 'deshabilitado'}\n• Cliente: ${cleanData.clientName || 'sin nombre'}`);
       } catch (error) {
         console.error('Error importing JSON:', error);
         alert('Error al importar el archivo. Por favor, verifica que sea un archivo JSON válido de una cotización.');
@@ -336,6 +352,18 @@ function PdfContent({
         </div>
       </div>
       
+      {/* Pre-table Message */}
+      {budget.preTableMessage && budget.preTableMessage.trim() !== '' && (
+        <div className="mb-6 p-4 border rounded-md" style={{ backgroundColor: '#f9fafb', border: '1px solid #d1d5db', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+          <h2 className="text-xl font-semibold mb-3" style={{ color: '#374151' }}>Información Importante</h2>
+          <div 
+            className="rich-text-content whitespace-pre-line" 
+            style={{ color: '#4b5563' }}
+            dangerouslySetInnerHTML={{ __html: budget.preTableMessage }}
+          />
+        </div>
+      )}
+
       {/* Proyectos */}
       {budget.projects.map((project, idx) => (
         <div
@@ -414,10 +442,12 @@ function PdfContent({
               <span className="font-semibold">Subtotal:</span>
               <span className="font-bold">{formatCurrency(subtotal)}</span>
             </div>
-            <div className="flex justify-between py-2" style={{ borderBottom: '1px solid #e2e8f0' }}>
-              <span className="font-semibold" style={{ color: '#ea580c' }}>IGV (18%):</span>
-              <span className="font-bold" style={{ color: '#ea580c' }}>{formatCurrency(igv)}</span>
-            </div>
+            {(budget.igvEnabled ?? true) && (
+              <div className="flex justify-between py-2" style={{ borderBottom: '1px solid #e2e8f0' }}>
+                <span className="font-semibold" style={{ color: '#ea580c' }}>IGV (18%):</span>
+                <span className="font-bold" style={{ color: '#ea580c' }}>{formatCurrency(igv)}</span>
+              </div>
+            )}
             <div className="flex justify-between py-3" style={{ backgroundColor: '#eff6ff', padding: '12px', borderRadius: '6px' }}>
               <span className="font-bold text-lg" style={{ color: '#1e40af' }}>Total:</span>
               <span className="font-bold text-xl" style={{ color: '#1e40af' }}>{formatCurrency(totalWithIGV)}</span>

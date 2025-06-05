@@ -20,6 +20,8 @@ interface BudgetContextType {
   updateTimeEstimate: (timeEstimate: string) => void;
   updateProjectNote: (projectNote: string) => void;
   updateHourlyRate: (rate: number) => void;
+  updatePreTableMessage: (message: string) => void;
+  updateIgvEnabled: (enabled: boolean) => void;
   getProjectTotal: (projectId: string) => number;
   getGrandTotal: () => number;
   getSubtotal: () => number;
@@ -44,6 +46,8 @@ const defaultBudget: Budget = {
   projectNote: DEFAULT_PROJECT_NOTE,
   hourlyRate: 15,
   companyInfo: DEFAULT_COMPANY_INFO,
+  preTableMessage: '',
+  igvEnabled: true, // IGV enabled by default (18% tax)
 };
 
 const BudgetContext = createContext<BudgetContextType | undefined>(undefined);
@@ -77,7 +81,7 @@ export const BudgetProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (!budget.date) {
       setBudget(prev => ({ ...prev, date: new Date().toISOString() }));
     }
-  }, []);
+  }, [budget.date]);
 
   const addProject = () => {
     const newProject: Project = {
@@ -219,6 +223,20 @@ export const BudgetProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }));
   };
 
+  const updatePreTableMessage = (message: string) => {
+    setBudget(prev => ({
+      ...prev,
+      preTableMessage: message,
+    }));
+  };
+
+  const updateIgvEnabled = (enabled: boolean) => {
+    setBudget(prev => ({
+      ...prev,
+      igvEnabled: enabled,
+    }));
+  };
+
   const getProjectHours = (projectId: string): number => {
     const project = budget.projects.find(p => p.id === projectId);
     if (!project) return 0;
@@ -272,6 +290,7 @@ export const BudgetProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const getIGV = (): number => {
+    if (!budget.igvEnabled) return 0;
     return getSubtotal() * 0.18;
   };
 
@@ -303,6 +322,8 @@ export const BudgetProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       updateTimeEstimate,
       updateProjectNote,
       updateHourlyRate,
+      updatePreTableMessage,
+      updateIgvEnabled,
       getProjectTotal,
       getGrandTotal,
       getSubtotal,

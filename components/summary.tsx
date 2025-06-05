@@ -6,6 +6,7 @@ import { useBudget } from '@/lib/budget-context';
 import { formatCurrency } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 
 export const Summary: React.FC = () => {
   const { 
@@ -15,7 +16,8 @@ export const Summary: React.FC = () => {
     getTotalWithIGV,
     getTotalHours, 
     getWeeksFromHours, 
-    updateBudget 
+    updateBudget,
+    updateIgvEnabled
   } = useBudget();
 
   const handleHourlyRateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -26,12 +28,17 @@ export const Summary: React.FC = () => {
     }
   };
 
+  const handleIgvEnabledChange = (checked: boolean) => {
+    updateIgvEnabled(checked);
+  };
+
   const totalHours = getTotalHours();
   const totalWeeks = getWeeksFromHours(totalHours);
   const subtotal = getSubtotal();
   const igv = getIGV();
   const totalWithIGV = getTotalWithIGV();
   const hourlyRate = typeof budget.hourlyRate === 'number' && !isNaN(budget.hourlyRate) ? budget.hourlyRate : 0;
+  const igvEnabled = budget.igvEnabled ?? true; // Default to true if undefined
 
   return (
     <div className="space-y-4">
@@ -60,6 +67,24 @@ export const Summary: React.FC = () => {
             </div>
           </div>
 
+          {/* IGV Enable/Disable Checkbox */}
+          <div className="flex items-center space-x-2 mb-4 p-3 border rounded-md bg-orange-50">
+            <Checkbox
+              id="igv-enabled"
+              checked={igvEnabled}
+              onCheckedChange={handleIgvEnabledChange}
+            />
+            <Label 
+              htmlFor="igv-enabled" 
+              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+            >
+              Aplicar IGV (18%)
+            </Label>
+            <p className="text-xs text-muted-foreground ml-2">
+              {igvEnabled ? 'IGV incluido en el cálculo' : 'IGV no aplicado'}
+            </p>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
             <div className="p-4 border rounded-md bg-muted/10">
               <p className="font-semibold text-sm">Semanas Estimadas</p>
@@ -77,10 +102,12 @@ export const Summary: React.FC = () => {
               <span className="font-semibold">Subtotal:</span>
               <span className="text-lg font-bold">{formatCurrency(subtotal)}</span>
             </div>
-            <div className="flex justify-between items-center p-4 border rounded-md bg-orange-50">
-              <span className="font-semibold">IGV (18%):</span>
-              <span className="text-lg font-bold text-orange-600">{formatCurrency(igv)}</span>
-            </div>
+            {igvEnabled && (
+              <div className="flex justify-between items-center p-4 border rounded-md bg-orange-50">
+                <span className="font-semibold">IGV (18%):</span>
+                <span className="text-lg font-bold text-orange-600">{formatCurrency(igv)}</span>
+              </div>
+            )}
             <div className="flex justify-between items-center p-4 border rounded-md bg-primary/10">
               <span className="font-semibold text-lg">Total:</span>
               <span className="text-xl font-bold text-primary">{formatCurrency(totalWithIGV)}</span>
